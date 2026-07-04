@@ -1,0 +1,481 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: NutriBerg — Recipe & Nutritional Information Platform (Serverless Backend)
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 256
+    Environment:
+      Variables:
+        RECIPES_TABLE: !Ref RecipesTable
+        USERS_TABLE: !Ref UsersTable
+        MEAL_LOGS_TABLE: !Ref MealLogsTable
+        MEAL_PLANS_TABLE: !Ref MealPlansTable
+        RATINGS_TABLE: !Ref RatingsTable
+        COMMENTS_TABLE: !Ref CommentsTable
+        MEDIA_BUCKET: !Ref MediaBucket
+        SPOONACULAR_API_KEY: !Ref SpoonacularApiKey
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  SpoonacularApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+
+Resources:
+  # ========================================
+  # API Gateway
+  # ========================================
+  NutriBergApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub NutriBerg-API-${Stage}
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # ========================================
+  # Cognito User Pool
+  # ========================================
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub NutriBerg-Users-${Stage}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: false
+          RequireSymbols: false
+      Schema:
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub NutriBerg-WebApp-${Stage}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      SupportedIdentityProviders:
+        - COGNITO
+
+  # ========================================
+  # DynamoDB Tables
+  # ========================================
+  RecipesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-Recipes-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recipeId
+          AttributeType: S
+        - AttributeName: cuisine
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recipeId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: cuisine-index
+          KeySchema:
+            - AttributeName: cuisine
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: category-index
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-Users-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  MealLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-MealLogs-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: dateMealType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: dateMealType
+          KeyType: RANGE
+
+  MealPlansTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-MealPlans-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: weekId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: weekId
+          KeyType: RANGE
+
+  RatingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-Ratings-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recipeId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recipeId
+          KeyType: HASH
+        - AttributeName: userId
+          KeyType: RANGE
+
+  CommentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NutriBerg-Comments-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: recipeId
+          AttributeType: S
+        - AttributeName: timestampUserId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recipeId
+          KeyType: HASH
+        - AttributeName: timestampUserId
+          KeyType: RANGE
+
+  # ========================================
+  # S3 Buckets
+  # ========================================
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub nutriberg-media-${Stage}-${AWS::AccountId}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  StaticSiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub nutriberg-site-${Stage}-${AWS::AccountId}
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+  # ========================================
+  # CloudFront Distribution
+  # ========================================
+  CDN:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt StaticSiteBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: false
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  # ========================================
+  # Lambda Functions
+  # ========================================
+  GetRecipesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-GetRecipes-${Stage}
+      Handler: handlers/getRecipes.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /recipes
+            Method: GET
+            Auth:
+              Authorizer: NONE
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
+
+  GetRecipeByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-GetRecipeById-${Stage}
+      Handler: handlers/getRecipeById.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /recipes/{id}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
+
+  CreateRecipeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-CreateRecipe-${Stage}
+      Handler: handlers/createRecipe.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /recipes
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+        - S3CrudPolicy:
+            BucketName: !Ref MediaBucket
+
+  LogMealFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-LogMeal-${Stage}
+      Handler: handlers/logMeal.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /meals
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MealLogsTable
+
+  GetMealsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-GetMeals-${Stage}
+      Handler: handlers/getMeals.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /meals
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MealLogsTable
+
+  SaveMealPlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-SaveMealPlan-${Stage}
+      Handler: handlers/saveMealPlan.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /meal-plans
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MealPlansTable
+
+  GetMealPlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-GetMealPlan-${Stage}
+      Handler: handlers/getMealPlan.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /meal-plans/{weekId}
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MealPlansTable
+
+  CalculateNutritionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-CalculateNutrition-${Stage}
+      Handler: handlers/calculateNutrition.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /nutrition/calculate
+            Method: POST
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
+
+  RateRecipeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-RateRecipe-${Stage}
+      Handler: handlers/rateRecipe.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /recipes/{id}/rate
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RatingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+
+  GetUserProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-GetUserProfile-${Stage}
+      Handler: handlers/getUserProfile.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /users/profile
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+
+  UpdateUserProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub NutriBerg-UpdateUserProfile-${Stage}
+      Handler: handlers/updateUserProfile.handler
+      CodeUri: src/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NutriBergApi
+            Path: /users/profile
+            Method: PUT
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+# ========================================
+# Outputs
+# ========================================
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub https://${NutriBergApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+
+  MediaBucketName:
+    Description: S3 Media Bucket Name
+    Value: !Ref MediaBucket
+
+  StaticSiteBucketName:
+    Description: S3 Static Site Bucket Name
+    Value: !Ref StaticSiteBucket
+
+  CloudFrontDomain:
+    Description: CloudFront Distribution Domain
+    Value: !GetAtt CDN.DomainName
