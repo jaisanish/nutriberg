@@ -1,172 +1,111 @@
 # NutriBerg 🥗
-**Final Project Documentation & Deployment Guide**
+**AWS Academy Sandbox Deployment Guide**
 
-NutriBerg is a state-of-the-art, full-stack nutrition tracking and meal planning application. Built with a modern glassmorphism UI, a React frontend, and a completely serverless AWS backend, NutriBerg empowers users to track their daily calories, discover personalized recipes, plan their week, and connect with a health-conscious community.
-
----
-
-## 🌟 Key Features
-
-- **Personalized Dashboard:** Track daily calories, macros, and micro-nutrients via dynamic doughnut and bar charts.
-- **Smart Meal Planner:** An intuitive weekly grid to schedule breakfasts, lunches, dinners, and snacks.
-- **Extensive Recipe Explorer:** Search, filter, and discover hundreds of recipes. 
-- **Custom Recipes:** Add your own custom recipes with automatic or manual nutritional calorie estimation.
-- **Community Feed:** Share updates, like posts, and interact with other users on their fitness journey.
-- **Seamless Authentication:** Secure user sign-up, login, and personalized profile goals.
+Welcome to the NutriBerg project! Since you are deploying this within the **AWS Academy Cloud Architecting Sandbox**, this guide has been specifically tailored to match the strict permissions and allowed services of your lab environment.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛑 Sandbox Constraints & Architecture
 
-### Frontend Architecture
-- **Framework:** React 18 + Vite (for ultra-fast HMR and building)
-- **Styling:** Custom CSS with Glassmorphism, CSS Variables, and Flexbox/Grid layouts
-- **Routing:** React Router DOM (v6)
-- **State Management:** React Context API (AuthContext, MealContext, CommunityContext)
-- **Icons:** Lucide React
-
-### Backend Infrastructure (AWS Serverless)
-- **API Gateway:** Handles all incoming REST API requests with built-in CORS and rate limiting.
-- **AWS Lambda:** Serverless Node.js functions for business logic (meal tracking, recipe management).
-- **Amazon DynamoDB:** NoSQL database for ultra-low latency data storage (Users, Recipes, Meal Logs).
-- **Amazon Cognito:** Manages user authentication, registration, and secure JWT token issuance.
-- **Amazon S3 & CloudFront:** Hosts the compiled React frontend globally with sub-millisecond edge caching.
-- **AWS SAM (Serverless Application Model):** Infrastructure as Code (IaC) used to provision all cloud resources.
+Based on the AWS Academy Lab Overview, here is how we will deploy:
+1. **Compute (AWS Lambda):** We will use serverless Lambda functions for our backend logic. 
+2. **Database (DynamoDB):** Allowed! We will use DynamoDB to store user data and meal logs.
+3. **Storage (Amazon S3):** Allowed! We will host our React frontend static files here.
+4. **CDN (Amazon CloudFront):** Allowed! We will use CloudFront to serve our S3 frontend globally.
+5. **Security (IAM Read-Only):** You **cannot** create new IAM roles. We MUST use the pre-existing `LabRole` for all compute execution permissions.
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Step 1: Clone the Repository in your Sandbox Terminal
 
-The frontend is configured to run out-of-the-box using mock data, meaning you can test the entire UI without needing AWS credentials!
+Start your AWS Lab and wait for the green circle (🟢) indicating it's ready. 
 
+1. Open the **AWS Management Console**.
+2. Open the **Terminal** provided in your browser (or use AWS CloudShell).
+3. Clone your GitHub repository:
 ```bash
-# 1. Clone the repository and navigate to the folder
+git clone https://github.com/jaisanish/nutriberg.git
 cd nutriberg
-
-# 2. Install dependencies
-npm install
-
-# 3. Start the Vite development server
-npm run dev
 ```
 
-Open your browser to `http://localhost:5173`. 
-*(Note: Authentication is simulated locally. You can use any email/password to log in and test user-specific features like the Meal Planner!)*
-
 ---
 
-## ☁️ Production Deployment (AWS)
+## ⚙️ Step 2: Deploy the Backend via AWS SAM
 
-To take this project from local development to a live production environment, follow these steps to deploy the backend via AWS SAM and the frontend via S3.
+Because your IAM permissions are **Read-Only**, AWS SAM will crash if it tries to create new roles. 
 
-> [!WARNING]
-> **AWS Sandbox / Learner Lab Users:** 
-> If you are doing this as a final project in an AWS Sandbox or Learner Lab environment, you have restricted permissions:
-> 1. **No IAM Role Creation:** You cannot let SAM create new IAM Roles. You must append `Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"` to every Lambda function inside `backend/template.yaml`.
-> 2. **No CloudFront:** Sandboxes often block CloudFront distributions. Instead of using CloudFront, you must host your frontend using **S3 Static Website Hosting**. 
-> 3. **CORS:** Ensure your S3 bucket has CORS enabled and is set to allow public read access.
+### Modify the SAM Template
+If you haven't already, ensure that every `AWS::Serverless::Function` inside `backend/template.yaml` has the `LabRole` explicitly attached to it. It should look like this:
+```yaml
+Type: AWS::Serverless::Function
+Properties:
+  Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+  # ... other properties ...
+```
 
-### 1. Prerequisites
-- An active **AWS Account**.
-- **AWS CLI** installed and configured (`aws configure` with your Access Keys).
-- **AWS SAM CLI** installed.
-
-### 2. Spoonacular API Setup
-NutriBerg uses the Spoonacular API to calculate accurate nutritional macros for custom recipes.
-1. Create a free account at [Spoonacular API](https://spoonacular.com/food-api).
-2. Generate an API Key.
-
-### 3. Deploy the Backend Infrastructure
-Navigate to the `backend/` directory (which contains the `template.yaml` for AWS SAM).
-
+### Build and Deploy
 ```bash
 cd backend
 sam build
 sam deploy --guided
 ```
-**During the guided deployment, provide the following:**
-- **Stack Name:** `nutriberg-prod`
+**During the guided deployment, provide:**
+- **Stack Name:** `nutriberg-backend`
 - **AWS Region:** `us-east-1`
-- **SpoonacularApiKey:** *(Paste your API key here)*
-- Allow SAM to create IAM roles and save the configuration.
+- **Allow SAM to create IAM roles:** **NO** (Very important!)
 
-**Save the Deployment Outputs:**
-When SAM finishes, it will print several values to the console. Save these; you will need them for the frontend `.env` file!
-- `ApiUrl`
-- `UserPoolId`
-- `UserPoolClientId`
-- `MediaBucketName`
-- `CloudFrontDomain` *(Skip this if using an AWS Sandbox, use your S3 Website URL instead!)*
+Once finished, SAM will output an `ApiUrl`. Copy this value!
 
-### 4. Connect Frontend to the Real Backend
-In the root `nutriberg/` folder, duplicate the `.env.example` file and rename it to `.env`. Fill in the values from your SAM outputs:
+*(Note: If AWS Academy blocks API Gateway completely in this specific lab, you will need to change your Lambda functions to use `FunctionUrl` in the SAM template instead of `Api` events).*
 
+---
+
+## 🌐 Step 3: Connect Frontend to Backend
+
+In the terminal, go back to the root `nutriberg` directory:
+```bash
+cd ..
+cp .env.example .env
+```
+Open `.env` (you can use `nano .env`) and update the `VITE_API_URL` with the URL you got from SAM:
 ```env
-VITE_SPOONACULAR_API_KEY=your_spoonacular_api_key
-VITE_AWS_REGION=us-east-1
 VITE_API_URL=https://<your-api-id>.execute-api.us-east-1.amazonaws.com/prod
-VITE_COGNITO_USER_POOL_ID=<your-user-pool-id>
-VITE_COGNITO_CLIENT_ID=<your-client-id>
 ```
 
-Update `src/context/AuthContext.jsx` to import and configure **AWS Amplify** so that Cognito manages authentication instead of the local mock state.
+---
 
-### 5. Deploy Frontend to S3 & CloudFront
-Build the optimized React bundle and sync it to the S3 bucket created by SAM.
+## 📦 Step 4: Build & Deploy Frontend (S3 + CloudFront)
 
+The AWS Academy sandbox explicitly allows **Amazon S3** and **Amazon CloudFront**. 
+
+### 1. Build the React App
+Ensure you have Node.js installed in your terminal, then run:
 ```bash
-# Build the production bundle
+npm install
 npm run build
-
-# Sync the 'dist' folder to your S3 bucket
-aws s3 sync dist/ s3://<your-MediaBucketName-from-SAM> --delete
 ```
+This generates a `dist/` folder containing the optimized frontend.
 
-> [!TIP]
-> **For AWS Sandbox Users:**
-> 1. Go to the S3 Console -> Your Bucket -> **Properties**.
-> 2. Scroll to the bottom and enable **Static website hosting**.
-> 3. Set the Index document to `index.html` and Error document to `index.html`.
-> 4. Go to **Permissions** -> Turn off "Block all public access".
-> 5. Add a Bucket Policy allowing `s3:GetObject` to `*`.
-> 6. Access your site via the provided **Bucket website endpoint** at the bottom of the Properties tab!
+### 2. Create an S3 Bucket & Upload
+We will create a bucket to hold the files. Replace `<your-unique-bucket-name>` with something unique (e.g., `nutriberg-frontend-anish-123`).
 
-*(For standard AWS accounts, use CloudFront):*
 ```bash
-# Invalidate the CloudFront cache to push updates immediately
-aws cloudfront create-invalidation --distribution-id <YOUR_DISTRIBUTION_ID> --paths "/*"
+aws s3 mb s3://<your-unique-bucket-name>
+aws s3 sync dist/ s3://<your-unique-bucket-name>
 ```
 
-Your app is now live globally on the internet via your CloudFront domain URL! 🎉
+### 3. Setup Amazon CloudFront
+Since you cannot register a custom domain in Route53, we will use the default CloudFront URL.
+1. Go to the **CloudFront Console**.
+2. Click **Create Distribution**.
+3. **Origin domain:** Select your S3 bucket from the dropdown.
+4. **Origin access:** Choose "Origin access control settings (recommended)" and let it create a policy for your S3 bucket.
+5. **Default root object:** Type `index.html`.
+6. Click **Create Distribution**.
 
----
+*(Note: CloudFront will provide a bucket policy after creation. You must go to your S3 bucket permissions and paste that policy so CloudFront can read the files!)*
 
-## 🗄️ API Endpoints Architecture
+### 4. Wait for Deployment
+Your CloudFront distribution will say "Deploying". Once it finishes, copy the **Distribution Domain Name** (e.g., `d12345.cloudfront.net`). 
 
-If you are expanding the backend, here is the REST architecture:
-
-| Method | Endpoint | Auth Required | Description |
-|--------|----------|---------------|-------------|
-| `GET` | `/recipes` | No | Fetch or search all recipes |
-| `POST` | `/recipes` | Yes (JWT) | Submit a custom recipe |
-| `GET` | `/meals` | Yes (JWT) | Get user's logged meals for the day |
-| `POST` | `/meals` | Yes (JWT) | Log a consumed recipe/meal |
-| `GET` | `/meal-plans/{weekId}` | Yes (JWT) | Get weekly planner data |
-| `POST` | `/meal-plans` | Yes (JWT) | Update the weekly planner slots |
-| `POST` | `/nutrition/calculate` | Yes (JWT) | Estimate macros via Spoonacular |
-
----
-
-## 💡 Troubleshooting
-
-- **Page refreshes causing 404s on S3/CloudFront?**
-  Ensure your CloudFront distribution is configured to redirect `404 Error` codes back to `/index.html` with a `200 OK` response, as this is required for React Router's client-side routing.
-  
-- **CORS Errors during API Calls?**
-  Verify that the API Gateway in your `template.yaml` has `Cors: "'*'"` enabled for all origins, and that Lambda functions are returning the `Access-Control-Allow-Origin` headers.
-
-- **Images not loading?**
-  The sample UI utilizes Unsplash images. Ensure you are connected to the internet. If using custom uploaded images, verify your S3 Bucket Policy allows public read access (`s3:GetObject`).
-
----
-*Built with ❤️ for Health & Fitness enthusiasts everywhere.*
+Paste that URL into your browser, and your Final Project is live! 🎉
