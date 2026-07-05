@@ -56,7 +56,7 @@ sam deploy --stack-name nutriberg-backend --resolve-s3 --capabilities CAPABILITY
 * Once the deploy finishes, look at the **Outputs** block at the end of the command output.
 * **Copy and save the `ApiUrl` value.** It looks like:
   `https://xxxxxxxxxx.execute-api.ap-south-2.amazonaws.com/dev`
-
+https://a6l6nrwef3.execute-api.ap-south-2.amazonaws.com/dev
 ---
 
 ## 🗄️ Step 4: Seed the DynamoDB Database
@@ -82,7 +82,7 @@ To pre-populate the database with initial recipe items:
 Create a `.env` file pointing the React build to your live API Gateway URL (replace the URL below with the **`ApiUrl`** you copied in Step 3):
 
 ```bash
-echo "VITE_API_URL=https://xxxxxxxxxx.execute-api.ap-south-2.amazonaws.com/dev" > .env
+echo "VITE_API_URL=https://a6l6nrwef3.execute-api.ap-south-2.amazonaws.com/dev" > .env
 ```
 
 ### 2. Compile the static web application:
@@ -113,9 +113,36 @@ aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stack
 2. Open it in your web browser. 
 3. **Your application is now live on AWS!** 🎉
 
----
-
 ## 🛠️ Sandbox Adaptations & Troubleshooting
 
-* **Cognito Authentication Fallback:** The AWS Academy Sandbox blocks Cognito User Pool creations. The NutriBerg frontend and backend Lambda functions are pre-configured to auto-detect this and fallback seamlessly to secure local session handling and custom user authorization headers (`x-user-id` and `Authorization`).
-* **IAM Permissions Fallback:** To bypass sandbox blocking of role creations (`iam:CreateRole`), the SAM template binds your Lambda functions to the pre-authorized Sandbox role (`lambda-run-role`) automatically.
+* **Cognito Authentication Fallback:** The application frontend and backend are pre-configured to support sandboxed deployments (where Cognito User Pools are restricted) by falling back dynamically to secure custom headers (`x-user-id` and `Authorization`).
+* **Root Account Support:** The execution roles for each Lambda function are managed dynamically by AWS SAM using fine-grained policy templates. No manual role creation or hardcoding is required.
+
+---
+
+## 🗑️ Clean Up & Resource Termination (Avoid AWS Costs)
+
+Once your project has been evaluated and you want to shut down the infrastructure to avoid incurring any future AWS costs, run these clean-up commands in your CloudShell terminal:
+
+### 1. Empty S3 Buckets
+S3 buckets containing files cannot be deleted by CloudFormation. You must empty them first:
+
+```bash
+# Retrieve the static hosting S3 bucket name
+STATIC_BUCKET=$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='StaticSiteBucketName'].OutputValue" --output text --region ap-south-2)
+
+# Retrieve the media storage S3 bucket name
+MEDIA_BUCKET=$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='MediaBucketName'].OutputValue" --output text --region ap-south-2)
+
+# Empty both buckets
+aws s3 rm s3://$STATIC_BUCKET --recursive --region ap-south-2
+aws s3 rm s3://$MEDIA_BUCKET --recursive --region ap-south-2
+```
+
+### 2. Delete the CloudFormation Stack
+Deletes all API Gateways, Lambda functions, DynamoDB tables, and S3 buckets:
+
+```bash
+aws cloudformation delete-stack --stack-name nutriberg-backend --region ap-south-2
+aws cloudformation wait stack-delete-complete --stack-name nutriberg-backend --region ap-south-2
+```
