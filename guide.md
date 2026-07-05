@@ -1,147 +1,121 @@
-# 🚀 NutriBerg — AWS Academy Sandbox Deployment Guide
+# 🚀 AWS Serverless Hosting & Deployment Guide: NutriBerg
 
-> **Environment:** AWS Academy Cloud Architecting 3 — Sandbox  
-> **Where to run commands:** AWS CloudShell (inside the AWS Console)  
-> **Time needed:** ~10 minutes
+This guide outlines how to build, deploy, and host the **NutriBerg** platform on AWS. The application uses a fully serverless architecture designed to deploy cleanly inside standard environments (including restricted environments like the AWS Academy Sandbox).
 
 ---
 
-## 📋 Pre-requisites
+## 📋 Architecture Overview
 
-- Your AWS Academy Sandbox lab is **started** (green circle next to AWS).
-- You have opened the **AWS Management Console** via the green circle.
-
----
-
-## Step 1: Open AWS CloudShell
-
-1. In the AWS Console, look at the **top-right corner** of the screen (near the region dropdown).
-2. Click the **`>_` icon** to open **CloudShell**.
-3. Wait for it to finish loading (you'll see a `$` prompt).
+* **Frontend:** React SPA hosted on **Amazon S3** static hosting and distributed globally via **Amazon CloudFront CDN**.
+* **Backend:** REST API built with **Amazon API Gateway** routing to **AWS Lambda** compute functions.
+* **Database:** NoSQL storage hosted on **Amazon DynamoDB**.
+* **Deployment System:** Automated Infrastructure as Code using **AWS SAM (Serverless Application Model)**.
 
 ---
 
-## Step 2: Clone the Repository
+## 🛠️ Step 1: Open AWS CloudShell
+
+1. Log into your **AWS Management Console**.
+2. Click the **CloudShell icon (`>_`)** in the top-right toolbar (next to the region dropdown).
+3. Wait for the terminal prompt to load completely.
+
+---
+
+## 📂 Step 2: Clone the Project Repository
+
+Clone the updated codebase from GitHub directly into your CloudShell environment:
 
 ```bash
 git clone https://github.com/jaisanish/nutriberg.git
-cd nutriberg/backend
+cd nutriberg
 ```
 
 ---
 
-## Step 3: Build the Backend
+## 🏗️ Step 3: Build and Deploy the Backend Stack
 
+### 1. Build the SAM template:
 ```bash
+cd backend
 sam build
 ```
+*(Wait until you see `Build Succeeded`)*
 
-Wait for `Build Succeeded` to appear.
-
----
-
-## Step 4: Delete Any Previous Failed Stack (if needed)
-
-If you have attempted a deployment before and it failed, run this first:
-
+### 2. (Optional) Delete previous stack if it is stuck in rollback:
 ```bash
 aws cloudformation delete-stack --stack-name nutriberg-backend
 ```
+*(Wait 30 seconds for complete cleanup)*
 
-Wait **30 seconds** before proceeding.
-
----
-
-## Step 5: Deploy the Backend
-
+### 3. Deploy the SAM template:
 ```bash
 sam deploy --stack-name nutriberg-backend --resolve-s3 --capabilities CAPABILITY_IAM --region us-east-1
 ```
 
-Wait for deployment to finish. At the end you will see an **Outputs** section.  
-Copy the **ApiUrl** value — it looks like:
-```
-https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev
-```
+* During the deployment, SAM will output the resources being created.
+* Once the deploy finishes, look at the **Outputs** block at the end of the command output.
+* **Copy and save the `ApiUrl` value.** It looks like:
+  `https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev`
 
 ---
 
-## Step 6: Seed the Database with Sample Recipes
+## 🗄️ Step 4: Seed the DynamoDB Database
 
-```bash
-cd ..
-node scripts/seed.js
-```
+To pre-populate the database with initial recipe items:
 
-This populates your DynamoDB tables with sample recipe data.
+1. Return to the project root directory and install dependencies:
+   ```bash
+   cd /home/cloudshell-user/nutriberg
+   npm install
+   ```
+2. Run the seeding script:
+   ```bash
+   node scripts/seed.js
+   ```
+   *(This will create sample recipes directly inside the `NutriBerg-Recipes-dev` table).*
 
 ---
 
-## Step 7: Build and Deploy the Frontend to S3
+## 💻 Step 5: Build and Deploy the React Frontend
 
-```bash
-cd /home/cloudshell-user/nutriberg
-```
-
-Create the `.env` file with your API URL (replace the URL below with YOUR ApiUrl from Step 5):
+### 1. Bind the Frontend to your API Gateway URL:
+Create a `.env` file pointing the React build to your live API Gateway URL (replace the URL below with the **`ApiUrl`** you copied in Step 3):
 
 ```bash
 echo "VITE_API_URL=https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev" > .env
 ```
 
-Install dependencies and build:
-
+### 2. Compile the static web application:
 ```bash
-npm install
 npm run build
 ```
+*(This outputs a production-ready client bundle to the `dist/` directory).*
 
-Upload the built site to S3:
+### 3. Upload the build files to S3:
+Retrieve your deployed static S3 bucket name dynamically and sync the compiled frontend files:
 
 ```bash
-aws s3 sync dist/ s3://$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='StaticSiteBucketName'].OutputValue" --output text) --region us-east-1
+STATIC_BUCKET=$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='StaticSiteBucketName'].OutputValue" --output text)
+aws s3 sync dist/ s3://$STATIC_BUCKET --region us-east-1
 ```
 
 ---
 
-## Step 8: Get Your Live Site URL
+## 🌍 Step 6: Access Your Live Application
 
-Run this to get your **CloudFront URL**:
+Run the following command to retrieve your public CloudFront distribution domain:
 
 ```bash
 aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomain'].OutputValue" --output text
 ```
 
-Open that URL in your browser — your site is live! 🎉
-
-> **Note:** CloudFront can take 5-10 minutes to fully propagate. If you see an error, wait a few minutes and refresh.
-
----
-
-## 🛠️ Troubleshooting
-
-- **`ROLLBACK_COMPLETE` error on deploy?**  
-  Run `aws cloudformation delete-stack --stack-name nutriberg-backend`, wait 30 seconds, then deploy again.
-
-- **`sam: command not found`?**  
-  You're not in CloudShell. The lab's built-in terminal doesn't have SAM. Use CloudShell instead (the `>_` icon in the AWS Console).
-
-- **API returning errors?**  
-  Check that you seeded the database (Step 6) and that the `.env` file has the correct API URL.
+1. Copy the output domain (e.g., `dxxxxxxxxxxxxx.cloudfront.net`).
+2. Open it in your web browser. 
+3. **Your application is now live on AWS!** 🎉
 
 ---
 
-## 📊 AWS Services Used
+## 🛠️ Sandbox Adaptations & Troubleshooting
 
-| Service | Purpose |
-|---------|---------|
-| **AWS Lambda** | Serverless backend functions |
-| **API Gateway** | REST API endpoints |
-| **DynamoDB** | NoSQL database for recipes, users, meals, ratings |
-| **S3** | Static site hosting + media storage |
-| **CloudFront** | CDN for the frontend |
-| **CloudFormation** | Infrastructure as Code (via SAM) |
-
----
-
-*Built with ❤️ for Health & Fitness enthusiasts everywhere.*
+* **Cognito Authentication Fallback:** The AWS Academy Sandbox blocks Cognito User Pool creations. The NutriBerg frontend and backend Lambda functions are pre-configured to auto-detect this and fallback seamlessly to secure local session handling and custom user authorization headers (`x-user-id` and `Authorization`).
+* **IAM Permissions Fallback:** To bypass sandbox blocking of role creations (`iam:CreateRole`), the SAM template binds your Lambda functions to the pre-authorized Sandbox role (`lambda-run-role`) automatically.
