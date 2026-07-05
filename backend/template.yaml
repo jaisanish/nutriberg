@@ -7,6 +7,7 @@ Globals:
     Timeout: 30
     Runtime: nodejs20.x
     MemorySize: 256
+    Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
     Environment:
       Variables:
         RECIPES_TABLE: !Ref RecipesTable
