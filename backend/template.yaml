@@ -214,7 +214,6 @@ Resources:
   GetRecipesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetRecipes-${Stage}
       Handler: handlers/getRecipes.handler
       CodeUri: src/
@@ -225,11 +224,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /recipes
             Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
 
   GetRecipeByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetRecipeById-${Stage}
       Handler: handlers/getRecipeById.handler
       CodeUri: src/
@@ -240,11 +241,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /recipes/{id}
             Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
 
   CreateRecipeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-CreateRecipe-${Stage}
       Handler: handlers/createRecipe.handler
       CodeUri: src/
@@ -255,11 +258,15 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /recipes
             Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
+        - S3CrudPolicy:
+            BucketName: !Ref MediaBucket
 
   LogMealFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-LogMeal-${Stage}
       Handler: handlers/logMeal.handler
       CodeUri: src/
@@ -270,11 +277,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /meals
             Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MealLogsTable
 
   GetMealsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetMeals-${Stage}
       Handler: handlers/getMeals.handler
       CodeUri: src/
@@ -285,11 +294,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /meals
             Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MealLogsTable
 
   SaveMealPlanFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-SaveMealPlan-${Stage}
       Handler: handlers/saveMealPlan.handler
       CodeUri: src/
@@ -300,11 +311,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /meal-plans
             Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MealPlansTable
 
   GetMealPlanFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetMealPlan-${Stage}
       Handler: handlers/getMealPlan.handler
       CodeUri: src/
@@ -315,11 +328,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /meal-plans/{weekId}
             Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MealPlansTable
 
   CalculateNutritionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-CalculateNutrition-${Stage}
       Handler: handlers/calculateNutrition.handler
       CodeUri: src/
@@ -330,11 +345,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /nutrition/calculate
             Method: POST
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RecipesTable
 
   RateRecipeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-RateRecipe-${Stage}
       Handler: handlers/rateRecipe.handler
       CodeUri: src/
@@ -345,11 +362,15 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /recipes/{id}/rate
             Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RatingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RecipesTable
 
   GetUserProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetUserProfile-${Stage}
       Handler: handlers/getUserProfile.handler
       CodeUri: src/
@@ -360,11 +381,13 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /users/profile
             Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
 
   UpdateUserProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-UpdateUserProfile-${Stage}
       Handler: handlers/updateUserProfile.handler
       CodeUri: src/
@@ -375,6 +398,9 @@ Resources:
             RestApiId: !Ref NutriBergApi
             Path: /users/profile
             Method: PUT
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
 
 # ========================================
 # Outputs
