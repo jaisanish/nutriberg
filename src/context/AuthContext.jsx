@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api, isApiEnabled } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -50,21 +51,33 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Check for stored session
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
-        setIsAuthenticated(true);
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+    const initSession = async () => {
+      // Check for stored session
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setUser(parsed);
+          setIsAuthenticated(true);
+          
+          if (isApiEnabled()) {
+            const profile = await api.getUserProfile(parsed.id);
+            if (profile) {
+              setUser(profile);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+            }
+          }
+        } catch (e) {
+          console.error("Error initializing user session from API:", e);
+          localStorage.removeItem(STORAGE_KEY);
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    initSession();
   }, []);
 
-  const login = (email, password) => {
+  const login = async (email, password) => {
     if (!email || !password) return { success: false, error: 'Please enter email and password' };
 
     const storedUsers = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]');
@@ -73,16 +86,27 @@ export function AuthProvider({ children }) {
     if (foundUser) {
       // Exclude password from session context
       const { password: _, ...sessionUser } = foundUser;
-      setUser(sessionUser);
+      
+      let userToSet = sessionUser;
+      if (isApiEnabled()) {
+        try {
+          const profile = await api.getUserProfile(sessionUser.id);
+          if (profile) userToSet = profile;
+        } catch (e) {
+          console.error("Error syncing profile on login:", e);
+        }
+      }
+
+      setUser(userToSet);
       setIsAuthenticated(true);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userToSet));
       navigate('/');
       return { success: true };
     }
     return { success: false, error: 'Invalid email or password' };
   };
 
-  const signup = (name, email, password) => {
+  const signup = async (name, email, password) => {
     if (!name || !email || !password) return { success: false, error: 'Please fill in all fields' };
 
     const storedUsers = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]');
@@ -113,6 +137,15 @@ export function AuthProvider({ children }) {
 
     // Log them in
     const { password: _, ...sessionUser } = newUser;
+
+    if (isApiEnabled()) {
+      try {
+        await api.updateUserProfile(sessionUser.id, sessionUser);
+      } catch (e) {
+        console.error("Error syncing profile on signup:", e);
+      }
+    }
+
     setUser(sessionUser);
     setIsAuthenticated(true);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser));
@@ -128,10 +161,18 @@ export function AuthProvider({ children }) {
     navigate('/auth');
   };
 
-  const updateProfile = (updates) => {
+  const updateProfile = async (updates) => {
     const updated = { ...user, ...updates };
     setUser(updated);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    if (isApiEnabled()) {
+      try {
+        await api.updateUserProfile(user.id, updates);
+      } catch (e) {
+        console.error("Error updating user profile on server:", e);
+      }
+    }
 
     // Also update in users database
     const storedUsers = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]');

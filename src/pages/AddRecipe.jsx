@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+import { api, isApiEnabled } from '../services/api';
 import { cuisines, categories, diets } from '../data/recipes';
 import { Plus, Minus, ChefHat, Image as ImageIcon, CheckCircle, Flame, Clock } from 'lucide-react';
 
@@ -58,6 +59,12 @@ export default function AddRecipe() {
     const customRecipes = stored ? JSON.parse(stored) : [];
     customRecipes.push(newRecipe);
     localStorage.setItem(CUSTOM_KEY, JSON.stringify(customRecipes));
+
+    if (isApiEnabled()) {
+      api.createRecipe(newRecipe).catch(e => {
+        console.error("Error creating recipe on backend:", e);
+      });
+    }
 
     addToast('Recipe added successfully!', 'success');
     navigate('/explore');

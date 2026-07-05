@@ -1,5 +1,16 @@
-// NutriBerg — Mock Recipe & Nutrition Data
-// 50+ curated recipes with real nutritional information
+import { api, isApiEnabled } from '../services/api';
+
+let cachedRecipes = null;
+
+// Async background load of live database recipes if API is enabled
+if (isApiEnabled()) {
+  api.getRecipes().then(data => {
+    if (data) {
+      cachedRecipes = data;
+      window.dispatchEvent(new CustomEvent('nutriberg-recipes-updated'));
+    }
+  }).catch(console.error);
+}
 
 export const recipes = [
   {
@@ -1195,6 +1206,10 @@ export const addRecipeReview = (recipeId, review) => {
 };
 
 export const getAllRecipes = () => {
+  if (isApiEnabled() && cachedRecipes) {
+    return cachedRecipes;
+  }
+
   const customStr = localStorage.getItem(CUSTOM_RECIPES_KEY);
   const customRecipes = customStr ? JSON.parse(customStr) : [];
   

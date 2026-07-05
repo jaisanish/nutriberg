@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { recipes, getRecipeById, sampleMealPlan } from '../data/recipes';
 import { useAuth } from './AuthContext';
+import { api, isApiEnabled } from '../services/api';
 
 const MealContext = createContext(null);
 
@@ -24,11 +25,40 @@ export function MealProvider({ children }) {
   });
 
   useEffect(() => {
-    const storedPlan = localStorage.getItem(MEAL_PLAN_KEY);
-    setMealPlan(storedPlan ? JSON.parse(storedPlan) : (user?.id === 'u1' ? sampleMealPlan : {}));
-    
-    const storedLog = localStorage.getItem(MEAL_LOG_KEY);
-    setMealLog(storedLog ? JSON.parse(storedLog) : (user?.id === 'u1' ? generateSampleLog() : []));
+    const loadMealData = async () => {
+      if (isApiEnabled() && user?.id) {
+        try {
+          const logs = await api.getMealLogs();
+          if (logs) setMealLog(logs);
+          
+          // Get current weekId dynamically
+          const today = new Date();
+          const target = new Date(today.valueOf());
+          const dayNr = (today.getDay() + 6) % 7;
+          target.setDate(target.getDate() - dayNr + 3);
+          const firstThursday = target.valueOf();
+          target.setMonth(0, 1);
+          if (target.getDay() !== 4) {
+            target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+          }
+          const weekId = today.getFullYear() + '-W' + (1 + Math.ceil((firstThursday - target) / 604800000));
+          
+          const plan = await api.getMealPlan(weekId);
+          if (plan) {
+            setMealPlan(prev => ({ ...prev, [weekId]: plan }));
+          }
+        } catch (e) {
+          console.error("Error loading meal data from API:", e);
+        }
+      } else {
+        const storedPlan = localStorage.getItem(MEAL_PLAN_KEY);
+        setMealPlan(storedPlan ? JSON.parse(storedPlan) : (user?.id === 'u1' ? sampleMealPlan : {}));
+        
+        const storedLog = localStorage.getItem(MEAL_LOG_KEY);
+        setMealLog(storedLog ? JSON.parse(storedLog) : (user?.id === 'u1' ? generateSampleLog() : []));
+      }
+    };
+    loadMealData();
   }, [user?.id]);
 
   useEffect(() => {
@@ -40,35 +70,53 @@ export function MealProvider({ children }) {
   }, [mealLog]);
 
   // Assign recipe to meal plan
-  const assignMeal = (weekId, day, mealType, recipeId) => {
-    setMealPlan(prev => ({
-      ...prev,
+  const assignMeal = async (weekId, day, mealType, recipeId) => {
+    const newPlan = {
+      ...mealPlan,
       [weekId]: {
-        ...(prev[weekId] || {}),
+        ...(mealPlan[weekId] || {}),
         [day]: {
-          ...(prev[weekId]?.[day] || {}),
+          ...(mealPlan[weekId]?.[day] || {}),
           [mealType]: recipeId,
         },
       }
-    }));
+    };
+    setMealPlan(newPlan);
+
+    if (isApiEnabled()) {
+      try {
+        await api.saveMealPlan(weekId, newPlan[weekId]);
+      } catch (e) {
+        console.error("Error saving meal plan to server:", e);
+      }
+    }
   };
 
   // Remove recipe from meal plan
-  const removeMeal = (weekId, day, mealType) => {
-    setMealPlan(prev => ({
-      ...prev,
+  const removeMeal = async (weekId, day, mealType) => {
+    const newPlan = {
+      ...mealPlan,
       [weekId]: {
-        ...(prev[weekId] || {}),
+        ...(mealPlan[weekId] || {}),
         [day]: {
-          ...(prev[weekId]?.[day] || {}),
+          ...(mealPlan[weekId]?.[day] || {}),
           [mealType]: null,
         },
       }
-    }));
+    };
+    setMealPlan(newPlan);
+
+    if (isApiEnabled()) {
+      try {
+        await api.saveMealPlan(weekId, newPlan[weekId]);
+      } catch (e) {
+        console.error("Error removing meal plan from server:", e);
+      }
+    }
   };
 
   // Log a meal (tracker)
-  const logMeal = (date, mealType, recipeId, servings = 1, customMeal = null) => {
+  const logMeal = async (date, mealType, recipeId, servings = 1, customMeal = null) => {
     const entry = {
       id: Date.now().toString(),
       date,
@@ -79,6 +127,14 @@ export function MealProvider({ children }) {
       timestamp: new Date().toISOString(),
     };
     setMealLog(prev => [...prev, entry]);
+
+    if (isApiEnabled()) {
+      try {
+        await api.logMeal(date, mealType, recipeId, servings, customMeal);
+      } catch (e) {
+        console.error("Error logging meal to server:", e);
+      }
+    }
   };
 
   // Remove a logged meal

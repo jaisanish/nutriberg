@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { MealProvider } from './context/MealContext';
@@ -38,6 +39,14 @@ function AuthLayout({ children }) {
 }
 
 export default function App() {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const handleRecipesUpdate = () => forceUpdate(n => n + 1);
+    window.addEventListener('nutriberg-recipes-updated', handleRecipesUpdate);
+    return () => window.removeEventListener('nutriberg-recipes-updated', handleRecipesUpdate);
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
