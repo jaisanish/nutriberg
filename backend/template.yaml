@@ -421,14 +421,6 @@ Outputs:
     Description: API Gateway URL
     Value: !Sub https://${NutriBergApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
 
-  UserPoolId:
-    Description: Cognito User Pool ID
-    Value: !Ref UserPool
-
-  UserPoolClientId:
-    Description: Cognito User Pool Client ID
-    Value: !Ref UserPoolClient
-
   MediaBucketName:
     Description: S3 Media Bucket Name
     Value: !Ref MediaBucket
