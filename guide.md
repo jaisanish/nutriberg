@@ -49,13 +49,13 @@ aws cloudformation delete-stack --stack-name nutriberg-backend
 
 ### 3. Deploy the SAM template:
 ```bash
-sam deploy --stack-name nutriberg-backend --resolve-s3 --capabilities CAPABILITY_IAM --region us-east-1
+sam deploy --stack-name nutriberg-backend --resolve-s3 --capabilities CAPABILITY_IAM --region ap-south-2
 ```
 
 * During the deployment, SAM will output the resources being created.
 * Once the deploy finishes, look at the **Outputs** block at the end of the command output.
 * **Copy and save the `ApiUrl` value.** It looks like:
-  `https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev`
+  `https://xxxxxxxxxx.execute-api.ap-south-2.amazonaws.com/dev`
 
 ---
 
@@ -82,7 +82,7 @@ To pre-populate the database with initial recipe items:
 Create a `.env` file pointing the React build to your live API Gateway URL (replace the URL below with the **`ApiUrl`** you copied in Step 3):
 
 ```bash
-echo "VITE_API_URL=https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev" > .env
+echo "VITE_API_URL=https://xxxxxxxxxx.execute-api.ap-south-2.amazonaws.com/dev" > .env
 ```
 
 ### 2. Compile the static web application:
@@ -95,8 +95,8 @@ npm run build
 Retrieve your deployed static S3 bucket name dynamically and sync the compiled frontend files:
 
 ```bash
-STATIC_BUCKET=$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='StaticSiteBucketName'].OutputValue" --output text)
-aws s3 sync dist/ s3://$STATIC_BUCKET --region us-east-1
+STATIC_BUCKET=$(aws cloudformation describe-stacks --stack-name nutriberg-backend --query "Stacks[0].Outputs[?OutputKey=='StaticSiteBucketName'].OutputValue" --output text --region ap-south-2)
+aws s3 sync dist/ s3://$STATIC_BUCKET --region ap-south-2
 ```
 
 ---

@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 
-const client = new DynamoDBClient({ region: 'us-east-1' });
+const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'ap-south-2' });
 const docClient = DynamoDBDocumentClient.from(client);
 
 const STAGE = process.env.STAGE || 'dev';
