@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/lib-dynamodb": "^3.500.0",
     "chart.js": "^4.5.1",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",
