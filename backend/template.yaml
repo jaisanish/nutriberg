@@ -214,7 +214,7 @@ Resources:
   GetRecipesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetRecipes-${Stage}
       Handler: handlers/getRecipes.handler
       CodeUri: src/
@@ -229,7 +229,7 @@ Resources:
   GetRecipeByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetRecipeById-${Stage}
       Handler: handlers/getRecipeById.handler
       CodeUri: src/
@@ -244,7 +244,7 @@ Resources:
   CreateRecipeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-CreateRecipe-${Stage}
       Handler: handlers/createRecipe.handler
       CodeUri: src/
@@ -259,7 +259,7 @@ Resources:
   LogMealFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-LogMeal-${Stage}
       Handler: handlers/logMeal.handler
       CodeUri: src/
@@ -274,7 +274,7 @@ Resources:
   GetMealsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetMeals-${Stage}
       Handler: handlers/getMeals.handler
       CodeUri: src/
@@ -289,7 +289,7 @@ Resources:
   SaveMealPlanFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-SaveMealPlan-${Stage}
       Handler: handlers/saveMealPlan.handler
       CodeUri: src/
@@ -304,7 +304,7 @@ Resources:
   GetMealPlanFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetMealPlan-${Stage}
       Handler: handlers/getMealPlan.handler
       CodeUri: src/
@@ -319,7 +319,7 @@ Resources:
   CalculateNutritionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-CalculateNutrition-${Stage}
       Handler: handlers/calculateNutrition.handler
       CodeUri: src/
@@ -334,7 +334,7 @@ Resources:
   RateRecipeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-RateRecipe-${Stage}
       Handler: handlers/rateRecipe.handler
       CodeUri: src/
@@ -349,7 +349,7 @@ Resources:
   GetUserProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-GetUserProfile-${Stage}
       Handler: handlers/getUserProfile.handler
       CodeUri: src/
@@ -364,7 +364,7 @@ Resources:
   UpdateUserProfileFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: arn:aws:iam::030892859286:role/lambda-run-role
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/lambda-run-role"
       FunctionName: !Sub NutriBerg-UpdateUserProfile-${Stage}
       Handler: handlers/updateUserProfile.handler
       CodeUri: src/
