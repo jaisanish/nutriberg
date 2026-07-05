@@ -165,7 +165,7 @@ Resources:
   MediaBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub nutriberg-media-${Stage}-${AWS::AccountId}
+      BucketName: !Sub nutriberg-media-${Stage}-${AWS::AccountId}-${AWS::Region}
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ['*']
@@ -176,7 +176,7 @@ Resources:
   StaticSiteBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub nutriberg-site-${Stage}-${AWS::AccountId}
+      BucketName: !Sub nutriberg-site-${Stage}-${AWS::AccountId}-${AWS::Region}
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: index.html
