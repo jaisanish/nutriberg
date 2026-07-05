@@ -5,9 +5,11 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.USERS_TABLE;
 
+const getUserId = require('../utils/getUserId');
+
 exports.handler = async (event) => {
   try {
-    const userId = event.requestContext.authorizer.claims.sub;
+    const userId = getUserId(event);
 
     const result = await docClient.send(new GetCommand({
       TableName: TABLE_NAME,
@@ -16,11 +18,13 @@ exports.handler = async (event) => {
 
     if (!result.Item) {
       // Create default profile for new user
-      const claims = event.requestContext.authorizer.claims;
+      const claims = event.requestContext?.authorizer?.claims || {};
+      const name = claims.name || event.headers?.['x-user-name'] || 'Demo User';
+      const email = claims.email || event.headers?.['x-user-email'] || 'demo@nutriberg.com';
       const newProfile = {
         userId,
-        name: claims.name || 'NutriBerg User',
-        email: claims.email,
+        name: name,
+        email: email,
         dietaryGoals: { calories: 2000, protein: 120, carbs: 250, fat: 65 },
         restrictions: [],
         preferences: [],

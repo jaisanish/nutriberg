@@ -6,9 +6,11 @@ const docClient = DynamoDBDocumentClient.from(client);
 const RATINGS_TABLE = process.env.RATINGS_TABLE;
 const RECIPES_TABLE = process.env.RECIPES_TABLE;
 
+const getUserId = require('../utils/getUserId');
+
 exports.handler = async (event) => {
   try {
-    const userId = event.requestContext.authorizer.claims.sub;
+    const userId = getUserId(event);
     const { id: recipeId } = event.pathParameters;
     const { rating } = JSON.parse(event.body);
 

@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const getUserId = require('../utils/getUserId');
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -8,11 +9,11 @@ const TABLE_NAME = process.env.RECIPES_TABLE;
 
 exports.handler = async (event) => {
   try {
-    const userId = event.requestContext.authorizer.claims.sub;
+    const userId = getUserId(event);
     const body = JSON.parse(event.body);
 
     const recipe = {
-      recipeId: uuidv4(),
+      recipeId: crypto.randomUUID(),
       userId,
       title: body.title,
       description: body.description,

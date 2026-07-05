@@ -5,9 +5,11 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.MEAL_LOGS_TABLE;
 
+const getUserId = require('../utils/getUserId');
+
 exports.handler = async (event) => {
   try {
-    const userId = event.requestContext.authorizer.claims.sub;
+    const userId = getUserId(event);
     const { startDate, endDate } = event.queryStringParameters || {};
 
     const params = {
